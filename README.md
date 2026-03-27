@@ -167,23 +167,16 @@ Gunakan:
 - SG: SG-VPCE-Privatelink
 - Subnet: AZ yang sama dengan EC2
 
-### C. DNS Mapping (Route 53)
-Konfigurasi DNS internal agar Consumer bisa memanggil layanan menggunakan domain rapi.
+### C. DNS Mapping (Split-Horizon DNS Strategy)
+Untuk mendukung arsitektur *Multi-VPC Overlapping CIDR*, digunakan metode **Split-Horizon DNS** agar setiap VPC memiliki resolusi nama yang independen.
 
-## 1. Create Private Hosted Zone (PHZ):
-- Domain Name: service.local
-- Type: Private Hosted Zone.
-- VPC Association: Pilih VPC-A-Consumer dan VPC-C-Consumer.
-(Note: Ini memungkinkan satu zona DNS melayani kedua VPC sekaligus).
+1. **Konfigurasi VPC A Consumer:**
+   - **Create PHZ:** `service.local` -> Associate **hanya** ke **VPC A**.
+   - **Record A (Alias):** `nginx.service.local` → Alias ke **Interface Endpoint Nginx (VPC A)**.
 
-## 2. Create Alias Record for VPC A & C:
-- Record Name: nginx (Sehingga menjadi nginx.service.local).
-- Record Type: A – Routes traffic to an IPv4 address and some AWS resources.
-- Alias: Yes (Toggle Aktif).
-- Route traffic to: * Pilih Alias to VPC endpoint.
-  - Region: us-east-1 (N. Virginia).
-  - Endpoint: Pilih ID Interface Endpoint Nginx milik VPC A.
-- Routing Policy: Simple routing.
+2. **Konfigurasi VPC C Consumer:**
+   - **Create PHZ:** `service.local` (Baru) -> Associate **hanya** ke **VPC C**.
+   - **Record A (Alias):** `nginx.service.local` → Alias ke **Interface Endpoint Nginx (VPC C)**.
 
 ---
 
@@ -194,7 +187,7 @@ Konfigurasi DNS internal agar Consumer bisa memanggil layanan menggunakan domain
   - VPC B → Endpoint Connections
 - Klik:
   - Accept
-  - 
+
 ### B. Connectivity Test
 
 Masuk ke EC2 Client via SSM Session Manager
