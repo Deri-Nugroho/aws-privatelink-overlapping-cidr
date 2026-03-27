@@ -171,11 +171,11 @@ Gunakan:
 Untuk mendukung arsitektur *Multi-VPC Overlapping CIDR*, digunakan metode **Split-Horizon DNS** agar setiap VPC memiliki resolusi nama yang independen.
 
 1. **Konfigurasi VPC A Consumer:**
-   - **Create PHZ:** `service.local` -> Associate **hanya** ke **VPC A**.
+   - **Create PHZ (Private hosted zone):** `service.local` -> Associate **hanya** ke **VPC A**.
    - **Record A (Alias):** `nginx.service.local` → Alias ke **Interface Endpoint Nginx (VPC A)**.
 
 2. **Konfigurasi VPC C Consumer:**
-   - **Create PHZ:** `service.local` (Baru) -> Associate **hanya** ke **VPC C**.
+   - **Create PHZ (Private hosted zone):** `service.local` (Baru) -> Associate **hanya** ke **VPC C**.
    - **Record A (Alias):** `nginx.service.local` → Alias ke **Interface Endpoint Nginx (VPC C)**.
 
 ---
