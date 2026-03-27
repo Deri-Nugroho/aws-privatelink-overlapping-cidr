@@ -27,25 +27,25 @@ Project ini mendokumentasikan implementasi **AWS PrivateLink** sebagai solusi te
 ## 💡 Arsitektur Logic (The Golden Answer)
 ### ❓ Mengapa Tidak Terjadi Konflik Routing?
 AWS PrivateLink bekerja di **Layer 4 (TCP)** dan tidak menggunakan tabel routing antar VPC.
-1.  Setiap Consumer VPC memiliki **Interface Endpoint (ENI)** dengan IP lokal.
-2.  Trafik diarahkan ke **Network Load Balancer (NLB)** di Provider VPC via internal AWS backbone.
-3.  **Kesimpulan:** Karena tidak ada pertukaran rute CIDR antar VPC, konflik *overlapping* berhasil dieliminasi secara total.
+1. Setiap Consumer VPC memiliki **Interface Endpoint (ENI)** dengan IP lokal.
+2. Trafik diarahkan ke **Network Load Balancer (NLB)** di Provider VPC via internal AWS backbone.
+3. **Kesimpulan:** Karena tidak ada pertukaran rute CIDR antar VPC, konflik *overlapping* berhasil dieliminasi secara total.
 
 ---
 
 ## I. 🏗️ Persiapan Infrastruktur
 
 ### A. Provider (VPC B - 10.1.0.0/16)
-1.  **VPC Setup:** Create `VPC-B-Provider`.
-2.  **Multi-AZ Subnets:** * Private Subnet B1 (AZ `us-east-1a`)
-    * Private Subnet B2 (AZ `us-east-1b`)
-    * *Benefit:* Menjamin ketersediaan layanan jika salah satu AZ mengalami *outage*.
-3.  **S3 Gateway Endpoint:** Associate ke Route Table VPC B agar EC2 bisa melakukan update package secara privat.
+1. **VPC Setup:** Create `VPC-B-Provider`.
+2. **Multi-AZ Subnets:** * Private Subnet B1 (AZ `us-east-1a`)
+   * Private Subnet B2 (AZ `us-east-1b`)
+   * *Benefit:* Menjamin ketersediaan layanan jika salah satu AZ mengalami gangguan (*outage*).
+3. **S3 Gateway Endpoint:** Associate ke Route Table VPC B agar EC2 bisa melakukan update package secara privat.
 
 ### B. Consumer (VPC A & VPC C - 10.0.0.0/16)
-1.  **VPC Setup:** `VPC-A-Consumer` & `VPC-C-Consumer`.
-2.  **DNS Settings:** Aktifkan **Enable DNS Hostnames** dan **Enable DNS Resolution** (Wajib untuk PrivateLink & SSM).
-3.  **Subnet:** Private Subnet di AZ `us-east-1a` (Sejajar dengan AZ Provider).
+1. **VPC Setup:** `VPC-A-Consumer` & `VPC-C-Consumer`.
+2. **DNS Settings:** Aktifkan **Enable DNS Hostnames** dan **Enable DNS Resolution**.
+3. **Subnet:** Private Subnet di AZ yang sejajar dengan Provider (`us-east-1a`).
 
 ---
 
@@ -54,7 +54,7 @@ AWS PrivateLink bekerja di **Layer 4 (TCP)** dan tidak menggunakan tabel routing
 
 ### A. Provider (VPC B)
 * **SG-Nginx-Provider:**
-    * **Inbound:** TCP 80 ← Source: `10.1.0.0/16`.
+    * **Inbound:** TCP 80 ← Source: `10.1.0.0/16` (NLB Subnet).
     * **Outbound:** HTTPS 443 → Destination: **S3 Prefix List ID**.
 
 ### B. Consumer (VPC A & C)
@@ -71,49 +71,41 @@ AWS PrivateLink bekerja di **Layer 4 (TCP)** dan tidak menggunakan tabel routing
 ## III. ⚙️ Deployment Compute & Load Balancer
 
 ### A. Provider Side (VPC B)
-1.  **EC2 Nginx Server (x2):** Deploy satu instance di AZ `1a` dan satu di AZ `1b`.
-    * **Role:** `AmazonSSMManagedInstanceCore`.
-    * **User Data:**
-        ```bash
-        #!/bin/bash
-        yum update -y
-        yum install nginx -y
-        systemctl start nginx
-        systemctl enable nginx
-        echo "<h1>Welcome to Nginx via PrivateLink (HA Active)</h1>" > /usr/share/nginx/html/index.html
-        ```
-2.  **Network Load Balancer (NLB):** * Scheme: **Internal**. 
-    * Listener: TCP 80 → Target Group: EC2 Nginx (Include both instances).
+1. **EC2 Nginx Server (x2):** Deploy satu instance di AZ `1a` dan satu di AZ `1b`.
+   * **Role:** `AmazonSSMManagedInstanceCore`.
+   * **User Data:** Install nginx & create custom index page.
+2. **Network Load Balancer (NLB):** * Scheme: **Internal**. 
+   * Listener: TCP 80 → Target Group: EC2 Nginx (Include both instances).
 
 ### B. Consumer Side (VPC A & C)
-1.  **EC2 Client:** IAM Role `AmazonSSMManagedInstanceCore`. Gunakan `SG-EC2-Client`.
+1. **EC2 Client:** IAM Role `AmazonSSMManagedInstanceCore`. Gunakan `SG-EC2-Client`.
 
 ---
 
 ## IV. 🔗 Implementasi AWS PrivateLink
 
 ### A. Endpoint Service (Provider - VPC B)
-1.  Hubungkan ke Internal NLB.
-2.  Enable: **Acceptance Required**.
-3.  Catat **Service Name** (Contoh: `com.amazonaws.vpce.us-east-1.vpce-svc-xxxx`).
+1. Hubungkan ke Internal NLB.
+2. Enable: **Acceptance Required**.
+3. Catat **Service Name**.
 
 ### B. Interface Endpoints (Consumer Side)
-1.  **SSM Endpoints (3 Required):** `ssm`, `ssmmessages`, `ec2messages`.
-    * **Setting:** **Enable Private DNS names: YES**.
-2.  **Nginx Interface Endpoint:**
-    * **Setting:** **Enable Private DNS names: NO** (Dikelola manual via Route 53).
-    * **Subnet Selection:** Pastikan mencentang AZ yang sesuai dengan lokasi EC2 Client untuk meminimalkan latensi.
+1. **SSM Endpoints (3 Required):** `ssm`, `ssmmessages`, `ec2messages`.
+   * **Setting:** **Enable Private DNS names: YES**.
+2. **Nginx Interface Endpoint:**
+   * **Setting:** **Enable Private DNS names: NO** (Dikelola manual via Route 53).
+   * **Subnet Selection:** Pilih AZ yang sesuai dengan lokasi EC2 Client.
 
 ### C. DNS Mapping (Split-Horizon Strategy)
-1.  **VPC A:** Create PHZ `service.local` -> Associate ke VPC A. Create Record `nginx` (Alias) -> Target: VPCE A.
-2.  **VPC C:** Create PHZ `service.local` -> Associate ke VPC C. Create Record `nginx` (Alias) -> Target: VPCE C.
+1. **VPC A:** Create PHZ `service.local` -> Associate ke VPC A. Create Record `nginx` (Alias) -> Target: VPCE A DNS.
+2. **VPC C:** Create PHZ `service.local` -> Associate ke VPC C. Create Record `nginx` (Alias) -> Target: VPCE C DNS.
 
 ---
 
 ## V. 🧪 Testing & Verification
 
-1.  **Acceptance:** Pada VPC B, **Accept** semua koneksi di menu *Endpoint Connections*.
-2.  **Connectivity Test:**
+1. **Acceptance:** Pada VPC B, **Accept** semua koneksi di menu *Endpoint Connections*.
+2. **Connectivity Test:**
 
 # 1. DNS Check
 ```bash
