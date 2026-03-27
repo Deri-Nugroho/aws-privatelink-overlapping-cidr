@@ -161,7 +161,7 @@ Gunakan:
 - SG: `SG-VPCE-SSM `
 - Enable Private DNS
 
-## 2. Nginx Interface Endpoint
+## 2. Nginx Interface Endpoint (VPC A & C)
 - Pilih: Endpoint services that use NLBs and GWLBs
 - Masukkan Service Name dari provider
 - SG: SG-VPCE-Privatelink
