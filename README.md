@@ -168,12 +168,22 @@ Gunakan:
 - Subnet: AZ yang sama dengan EC2
 
 ### C. DNS Mapping (Route 53)
+Konfigurasi DNS internal agar Consumer bisa memanggil layanan menggunakan domain rapi.
 
-- Private Hosted Zone:
-`service.local `
+## 1. Create Private Hosted Zone (PHZ):
+- Domain Name: service.local
+- Type: Private Hosted Zone.
+- VPC Association: Pilih VPC-A-Consumer dan VPC-C-Consumer.
+(Note: Ini memungkinkan satu zona DNS melayani kedua VPC sekaligus).
 
-Record:
-`nginx.service.local → Alias ke Interface Endpoint DNS `
+## 2. Create Alias Record for VPC A & C:
+- Record Name: nginx (Sehingga menjadi nginx.service.local).
+- Record Type: A – Routes traffic to an IPv4 address and some AWS resources.
+- Alias: Yes (Toggle Aktif).
+- Route traffic to: * Pilih Alias to VPC endpoint.
+  - Region: us-east-1 (N. Virginia).
+  - Endpoint: Pilih ID Interface Endpoint Nginx milik VPC A.
+- Routing Policy: Simple routing.
 
 ---
 
@@ -187,7 +197,7 @@ Record:
   - 
 ### B. Connectivity Test
 
-Masuk ke EC2 via SSM Session Manager
+Masuk ke EC2 Client via SSM Session Manager
 
 ## 1. DNS Check
 ```bash
