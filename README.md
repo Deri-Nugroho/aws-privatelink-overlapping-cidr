@@ -1,6 +1,6 @@
 # 🚀 AWS PrivateLink Solution: Overlapping CIDR Challenge
 
-![AWS Architecture Diagram](assets/Overlapping_CIDR_VPC_Peering.drawio.png)
+![AWS Architecture Diagram](assets/Overlapping_CIDR_VPC_Peering.png)
 
 ## 📌 Overview
 Project ini mendokumentasikan implementasi **AWS PrivateLink** sebagai solusi teknis untuk mengatasi konflik routing pada VPC dengan CIDR identik (**VPC A & VPC C: 10.0.0.0/16**). Arsitektur ini mengadopsi prinsip **Zero Trust & Cost-Efficient**, memastikan layanan tetap terisolasi tanpa memerlukan Internet Gateway, NAT Gateway, maupun Public IP.
